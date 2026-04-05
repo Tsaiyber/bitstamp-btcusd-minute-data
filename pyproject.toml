@@ -1,22 +1,26 @@
-[tool.poetry]
+[project]
 name = "bitstamp-btcusd-minute-data"
 version = "0.1.0"
 description = "Daily updates of Bitstamp BTC/USD 1-minute OHLC data, with historical data since 2012"
-authors = ["Mourits de Beer <ff137@proton.me>"]
-license = "LICENSE"
-readme = "README.md"
-repository = "https://github.com/ff137/bitstamp-btcusd-minute-data"
-packages = [{ include = "scripts" }]
+requires-python = ">=3.9"
 
-[tool.poetry.dependencies]
-python = "^3.9"
+dependencies = [
+    "pandas>=2.2.3",
+    "requests>=2.32.3",
+]
 
-pandas = "^2.2.3"
-requests = "^2.32.3"
+[project.scripts]
+btcdata-update = "scripts.update_data:main"
+btcdata-inspect = "scripts.inspect_data:main"
 
-[tool.poetry.group.dev.dependencies]
-ruff = "^0.9.7"
+[dependency-groups]
+dev = [
+    "ruff>=0.9.7",
+]
 
 [build-system]
-requires = ["poetry-core>=2.1"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["scripts"]

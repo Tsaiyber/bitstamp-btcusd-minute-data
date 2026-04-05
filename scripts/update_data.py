@@ -239,7 +239,7 @@ def fill_missing_minutes(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # Main execution
-if __name__ == "__main__":
+def main() -> None:
     # Ensure data exists
     ensure_data()
 
@@ -276,3 +276,7 @@ if __name__ == "__main__":
         )
     else:
         logger.info("No missing data to fetch")
+
+
+if __name__ == "__main__":
+    main()
