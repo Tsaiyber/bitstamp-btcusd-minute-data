@@ -302,6 +302,9 @@ def merge_all() -> None:
     df.to_parquet(MERGED_DATA_PATH, index=False)
     logger.info(f"Merged {len(df)} records -> {MERGED_DATA_PATH}")
 
+    # Validate merged data
+    validate_data_integrity(df)
+
 
 if __name__ == "__main__":
     main()
