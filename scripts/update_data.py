@@ -188,8 +188,8 @@ def validate_data_integrity(df: pd.DataFrame) -> pd.DataFrame:
         pd.to_datetime(df["timestamp"], unit="s")
     )
     if not missing_minutes.empty:
-        missing_timestamps = missing_minutes.astype(int) // 10**9  # Convert to Unix
-        logger.warning(f"Missing minutes detected: {missing_timestamps.tolist()}")
+        missing_timestamps = [int(ts.timestamp()) for ts in missing_minutes]
+        logger.warning(f"Missing minutes detected: {missing_timestamps}")
     else:
         logger.info("No missing minutes detected")
 
@@ -207,15 +207,12 @@ def fill_missing_minutes(df: pd.DataFrame) -> pd.DataFrame:
     df = df.drop_duplicates(subset="timestamp", keep="last").copy()
     df.set_index("timestamp", inplace=True)
 
-    # Create a complete range of timestamps
-    full_range = (
-        pd.date_range(
-            start=pd.to_datetime(df.index.min(), unit="s"),
-            end=pd.to_datetime(df.index.max(), unit="s"),
-            freq="min",
-        ).astype(int)
-        // 10**9
-    )  # Convert to seconds
+    # Create a complete range of timestamps (as integer seconds)
+    full_range = pd.RangeIndex(
+        start=int(df.index.min()),
+        stop=int(df.index.max()) + 60,
+        step=60,
+    )
 
     # Reindex the DataFrame to include all timestamps
     df = df.reindex(full_range)
