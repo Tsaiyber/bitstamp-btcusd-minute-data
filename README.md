@@ -11,10 +11,10 @@ BTC/USD 历史与实时 1 分钟 K 线数据，个人数据基础设施
 
 ## 📖 项目概述
 
-来自 Bitstamp 交易所的 BTC/USD **1 分钟 OHLC** 数据，覆盖 2012 年至今。历史数据以压缩 CSV 形式存储，增量更新通过 `uv run btcdata-sync` 从 Bitstamp API 拉取。
+来自 Bitstamp 交易所的 BTC/USD **1 分钟 OHLC** 数据，覆盖 2012 年至今。历史数据以压缩 CSV 形式存储，`uv run btcdata-sync` 从 Bitstamp API 拉取增量数据并自动合并为单一 Parquet 文件。
 
-- 📊 **完整历史** — 2012-01-01 至 2025-01-07，685 万条记录，无缺口无空值
-- 🔄 **增量同步** — `uv run btcdata-sync` 从 Bitstamp API 拉取最新分钟数据
+- 📊 **完整历史** — 2012-01-01 至今，750 万条记录，无缺口无空值
+- 🔄 **增量同步 + 自动合并** — `uv run btcdata-sync` 拉取最新分钟数据，合并输出 `btcusd_bitstamp_1min_all.parquet`
 - 🔍 **数据校验** — `uv run btcdata-inspect` 检查缺口、重复、空值
 - ⚡ **兼容 pandas 3.x** — 修复原版 `fill_missing_minutes` 在 pandas 3 下的时间戳溢出 bug
 
@@ -25,7 +25,8 @@ BTC/USD 历史与实时 1 分钟 K 线数据，个人数据基础设施
 | 文件 | 时间范围 | 记录数 | 说明 |
 |------|----------|--------|------|
 | `data/historical/btcusd_bitstamp_1min_2012-2025.csv.gz` | 2012-01-01 ~ 2025-01-07 | 6,846,600 | 历史压缩包，一次性下载 |
-| `data/updates/btcusd_bitstamp_1min_latest.csv` | 2025-01-07 ~ 今日 | ~65万+ | 增量更新文件 |
+| `data/updates/btcusd_bitstamp_1min_latest.csv` | 2025-01-07 ~ 今日 | ~65万+ | 增量更新（btcdata-sync 写入） |
+| `data/btcusd_bitstamp_1min_all.parquet` | 2012-01-01 ~ 今日 | ~750万 | 合并全量文件（btcdata-sync 自动生成） |
 
 字段：`timestamp` · `open` · `high` · `low` · `close` · `volume`
 
@@ -57,6 +58,7 @@ Loaded daily dataset with 653294 records
 No missing minutes detected
 No null values detected
 Successfully saved 653412 records to data/updates/btcusd_bitstamp_1min_latest.csv
+Merged 7499906 records -> data/btcusd_bitstamp_1min_all.parquet
 ```
 
 ### 检查数据
@@ -74,21 +76,24 @@ uv run btcdata-inspect merged    # 检查合并后全量数据
 ```mermaid
 flowchart TD
     subgraph S1["  历史数据（一次性）  "]
-        HF[("🗜️ CSV.gz\n历史文件\n2012~2025")]
+        GZ[("🗜️ CSV.gz\n历史文件\n2012~2025")]
     end
 
     subgraph S2["  增量同步（日常）  "]
         API["🌐 Bitstamp API\nOHLC v2"]
-        SYNC["⚡ btcdata-sync\n拉取缺失分钟"]
-        CSV[("📄 btcusd_bitstamp\n_1min_latest.csv")]
+        SYNC["⚡ btcdata-sync"]
+        CSV[("📄 latest.csv\n增量更新")]
+        PQ[("📦 all.parquet\n全量合并")]
         API -->|"fetch missing"| SYNC --> CSV
+        SYNC -->|"auto merge"| PQ
+        GZ -->|"concat"| PQ
     end
 
     subgraph S3["  使用数据  "]
         INSPECT["🔍 btcdata-inspect\n校验完整性"]
-        PY["🐍 Python\n加载合并"]
-        HF & CSV --> INSPECT
-        HF & CSV --> PY
+        ML["🤖 ML 模型\n5min/15min 预测"]
+        PQ --> INSPECT
+        PQ --> ML
     end
 ```
 
@@ -100,11 +105,12 @@ flowchart TD
 bitstamp-btcusd-minute-data/
 ├── data/
 │   ├── historical/
-│   │   └── btcusd_bitstamp_1min_2012-2025.csv.gz   # 历史数据（需下载解压）
-│   └── updates/
-│       └── btcusd_bitstamp_1min_latest.csv          # 增量更新（btcdata-sync 写入）
+│   │   └── btcusd_bitstamp_1min_2012-2025.csv.gz     # 历史数据（一次性下载）
+│   ├── updates/
+│   │   └── btcusd_bitstamp_1min_latest.csv            # 增量更新
+│   └── btcusd_bitstamp_1min_all.parquet               # 全量合并（自动生成）
 ├── scripts/
-│   ├── update_data.py       # btcdata-sync 入口
+│   ├── update_data.py       # btcdata-sync 入口（同步 + 合并）
 │   ├── inspect_data.py      # btcdata-inspect 入口
 │   └── preprocess_bulk_data.py  # 一次性历史数据预处理
 ├── pyproject.toml
@@ -115,17 +121,12 @@ bitstamp-btcusd-minute-data/
 
 ## 🐍 Python 加载示例
 
+直接加载合并后的全量 Parquet：
+
 ```python
 import pandas as pd
 
-df_hist = pd.read_csv(
-    'data/historical/btcusd_bitstamp_1min_2012-2025.csv.gz',
-    compression='gzip'
-)
-df_recent = pd.read_csv('data/updates/btcusd_bitstamp_1min_latest.csv')
-
-df = pd.concat([df_hist, df_recent], ignore_index=True)
-df = df.drop_duplicates(subset='timestamp').sort_values('timestamp').reset_index(drop=True)
+df = pd.read_parquet('data/btcusd_bitstamp_1min_all.parquet')
 print(df.info())
 ```
 
@@ -136,6 +137,7 @@ print(df.info())
 | 库 | 版本 | 用途 |
 |----|------|------|
 | pandas | >=2.2.3 | 数据处理 |
+| pyarrow | >=18.0 | Parquet 读写 |
 | requests | >=2.32.3 | Bitstamp API 请求 |
 | ruff | >=0.9.7 | 代码格式化（dev） |
 

@@ -9,7 +9,9 @@ import requests
 # Configuration
 CURRENCY_PAIR = "btcusd"
 BULK_DATA_PATH = "data/historical/btcusd_bitstamp_1min_2012-2025.csv"
+BULK_DATA_PATH_GZ = "data/historical/btcusd_bitstamp_1min_2012-2025.csv.gz"
 DAILY_DATA_PATH = "data/updates/btcusd_bitstamp_1min_latest.csv"
+MERGED_DATA_PATH = "data/btcusd_bitstamp_1min_all.parquet"
 COLUMN_NAMES = ["timestamp", "open", "high", "low", "close", "volume"]
 
 # Configure logging
@@ -273,6 +275,32 @@ def main() -> None:
         )
     else:
         logger.info("No missing data to fetch")
+
+    # Merge historical + updates into single parquet
+    merge_all()
+
+
+def merge_all() -> None:
+    bulk_path = BULK_DATA_PATH_GZ if os.path.exists(BULK_DATA_PATH_GZ) else BULK_DATA_PATH
+    if not os.path.exists(bulk_path):
+        logger.warning(f"Historical data not found at {bulk_path}, skipping merge")
+        return
+    if not os.path.exists(DAILY_DATA_PATH):
+        logger.warning(f"Updates data not found at {DAILY_DATA_PATH}, skipping merge")
+        return
+
+    compression = "gzip" if bulk_path.endswith(".gz") else None
+    df_hist = pd.read_csv(bulk_path, compression=compression)
+    df_updates = pd.read_csv(DAILY_DATA_PATH)
+
+    df = pd.concat([df_hist, df_updates], ignore_index=True)
+    df.drop_duplicates(subset="timestamp", inplace=True)
+    df.sort_values("timestamp", inplace=True)
+    df.reset_index(drop=True, inplace=True)
+
+    os.makedirs(os.path.dirname(MERGED_DATA_PATH) or ".", exist_ok=True)
+    df.to_parquet(MERGED_DATA_PATH, index=False)
+    logger.info(f"Merged {len(df)} records -> {MERGED_DATA_PATH}")
 
 
 if __name__ == "__main__":

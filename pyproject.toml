@@ -6,11 +6,12 @@ requires-python = ">=3.9"
 
 dependencies = [
     "pandas>=2.2.3",
+    "pyarrow>=18.0",
     "requests>=2.32.3",
 ]
 
 [project.scripts]
-btcdata-update = "scripts.update_data:main"
+btcdata-sync = "scripts.update_data:main"
 btcdata-inspect = "scripts.inspect_data:main"
 
 [dependency-groups]
