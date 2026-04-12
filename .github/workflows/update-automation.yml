@@ -17,29 +17,23 @@ jobs:
           lfs: false # No need to fetch the bulk data for this workflow
           fetch-depth: 2 # Fetch enough history to reference HEAD~
 
-      # Step 2: Set up Python 3.12
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      # Step 2: Install uv (manages Python 3.13 automatically)
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
+          enable-cache: true
 
-      # Step 3: Install Poetry
-      - name: Install Poetry
-        shell: bash
-        run: |
-          pipx install poetry==2.1.1  --python python3.12
-          echo $PIPX_BIN_DIR >> $GITHUB_PATH
-
-      # Step 4: Install project dependencies using Poetry
+      # Step 3: Install project dependencies
       - name: Install dependencies
         run: |
-          poetry install
+          uv sync --frozen
 
-      # Step 5: Run the Python script to fetch and process data
+      # Step 4: Run the Python script to fetch and process data
       - name: Run data processing script
         run: |
           set -o pipefail
-          poetry run python scripts/update_data.py 2>&1 | tee script_output.log
+          uv run python scripts/update_data.py 2>&1 | tee script_output.log
           if grep -q "Successfully saved" script_output.log; then
             echo "SCRIPT_SUCCESS=true" >> $GITHUB_ENV
           else

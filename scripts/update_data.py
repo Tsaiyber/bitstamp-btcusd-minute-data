@@ -207,6 +207,9 @@ def validate_data_integrity(df: pd.DataFrame) -> pd.DataFrame:
 # Fill missing minutes using forward fill strategy
 def fill_missing_minutes(df: pd.DataFrame) -> pd.DataFrame:
     df = df.drop_duplicates(subset="timestamp", keep="last").copy()
+    # Ensure timestamp is int64 so set_index + reindex(RangeIndex) aligns by value
+    # (float64 indices would silently produce all-NaN rows that later get ffill'd)
+    df["timestamp"] = df["timestamp"].astype("int64")
     df.set_index("timestamp", inplace=True)
 
     # Create a complete range of timestamps (as integer seconds)
@@ -261,11 +264,12 @@ def main() -> None:
             CURRENCY_PAIR, missing_interval, daily_df
         )
 
-        # Fill missing minutes
-        updated_daily_df = fill_missing_minutes(updated_daily_df)
-
-        # Validate data integrity
+        # Validate integrity BEFORE filling — so gap/null warnings reflect the
+        # real raw data, not the post-ffill state (where they're always clean).
         updated_daily_df = validate_data_integrity(updated_daily_df)
+
+        # Fill missing minutes (forward-fill OHLC, zero volume)
+        updated_daily_df = fill_missing_minutes(updated_daily_df)
 
         # Save the updated daily dataset
         os.makedirs(os.path.dirname(DAILY_DATA_PATH), exist_ok=True)

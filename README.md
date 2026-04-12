@@ -3,7 +3,7 @@
 BTC/USD 历史与实时 1 分钟 K 线数据，个人数据基础设施
 
 ![Version](https://img.shields.io/badge/Version-0.1.0-green.svg)
-![Python](https://img.shields.io/badge/Python-3.9+-blue.svg?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.13+-blue.svg?logo=python&logoColor=white)
 ![uv](https://img.shields.io/badge/uv-latest-purple.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 
