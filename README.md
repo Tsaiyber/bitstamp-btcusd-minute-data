@@ -119,18 +119,7 @@ bitstamp-btcusd-minute-data/
 
 ---
 
-## 🐍 Python 加载示例
 
-直接加载合并后的全量 Parquet：
-
-```python
-import pandas as pd
-
-df = pd.read_parquet('data/btcusd_bitstamp_1min_all.parquet')
-print(df.info())
-```
-
----
 
 ## 🔗 技术栈
 
